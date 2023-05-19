@@ -6,4 +6,7 @@
 	"files.trimTrailingWhitespace": true,
 	"files.insertFinalNewline": true,
 	"editor.inlayHints.enabled": "offUnlessPressed",
+	"cSpell.words": [
+		"lerp"
+	],
 }
