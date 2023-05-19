@@ -88,15 +88,30 @@ fn add_text_window(mut commands: Commands, asset_server: Res<AssetServer>) {
 			TextSection::new(
 				"Score: ",
 				TextStyle {
+					font: asset_server.load("fonts/FiraSans-Bold.ttf"),
 					font_size: SCOREBOARD_FONT_SIZE,
 					color: TEXT_COLOR,
-					..default()
 				},
 			),
 			TextSection::from_style(TextStyle {
+				font: asset_server.load("fonts/FiraSans-Bold.ttf"),
 				font_size: SCOREBOARD_FONT_SIZE,
-				color: Color::WHITE,
-				..default()
+				color: Color::BLUE,
+			}),
+			TextSection::from_style(TextStyle {
+				font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+				font_size: SCOREBOARD_FONT_SIZE,
+				color: Color::BLUE,
+			}),
+			TextSection::from_style(TextStyle {
+				font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+				font_size: SCOREBOARD_FONT_SIZE,
+				color: Color::BLUE,
+			}),
+			TextSection::from_style(TextStyle {
+				font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+				font_size: SCOREBOARD_FONT_SIZE,
+				color: Color::BLUE,
 			}),
 		])
 		.with_style(Style {
@@ -119,12 +134,16 @@ fn greet_people(
 	time: Res<Time>,
 	mut timer: ResMut<GreetTimer>,
 	query: Query<&Name, With<Person>>,
+	mut text_query: Query<&mut Text>,
 ) {
 	if !timer.0.tick(time.delta()).just_finished() {
 		return;
 	}
+	let mut i = 2;
+	let mut text = text_query.single_mut();
 	for name in &query {
-		println!("hello {}!", name.0);
+		text.sections[i].value = format!("hello {}!", name.0);
+		i += 1;
 	}
 	scoreboard.score += 1;
 }
