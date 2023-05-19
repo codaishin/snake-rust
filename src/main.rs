@@ -19,7 +19,8 @@ impl Plugin for PlayerPlugin {
 		app.add_startup_system(setup_snake)
 			.add_system(update_path_marker)
 			.add_system(update_snake)
-			.add_system(update_path);
+			.add_system(update_path)
+			.add_system(update_direction);
 	}
 }
 
@@ -101,6 +102,7 @@ fn setup_snake(
 		},
 		SegmentIndex(0),
 	));
+	commands.spawn(Direction(Vec2 { x: 1.0, y: 0.0 }));
 }
 
 fn update_path_marker(
@@ -126,29 +128,54 @@ fn update_snake(
 	}
 }
 
-fn update_path(mut query_scaler: Query<&mut PathScaler>, time: Res<Time>) {
-	let mut scaler = query_scaler.single_mut();
+fn update_path(
+	mut query_path: Query<(&mut PathScaler, &mut Path)>,
+	query_direction: Query<&Direction>,
+	time: Res<Time>,
+) {
+	let (mut scaler, mut path) = query_path.single_mut();
+	let direction = query_direction.single();
 	let delta = time.delta().as_secs_f32() * SPEED;
-	scaler.0 = (scaler.0 + delta) % 1.0;
+	let new_scale = scaler.0 + delta;
+	scaler.0 = new_scale % 1.0;
+	if new_scale >= 1.0 {
+		let fst = path.0[0];
+		path.0.insert(0, fst + direction.0 * GRID_SCALE);
+		path.0.pop();
+	}
 }
 
-fn update_velocity(
+fn update_direction(
 	keyboard_input: Res<Input<KeyCode>>,
-	mut query: Query<&mut Direction, With<Snake>>,
+	mut query: Query<&mut Direction>,
+	query_path: Query<&Path>,
 ) {
 	let mut direction = query.single_mut();
+	let mut new_direction: Option<Vec2> = None;
+	let path = query_path.single();
+	let path_direction = path.0[0] - path.0[1];
 	if keyboard_input.pressed(KeyCode::Left) {
-		direction.0 = Vec2 { x: -1.0, y: 0.0 };
+		new_direction = Some(Vec2 { x: -1.0, y: 0.0 });
 	}
 	if keyboard_input.pressed(KeyCode::Right) {
-		direction.0 = Vec2 { x: 1.0, y: 0.0 };
+		new_direction = Some(Vec2 { x: 1.0, y: 0.0 });
 	}
 	if keyboard_input.pressed(KeyCode::Up) {
-		direction.0 = Vec2 { x: 0.0, y: 1.0 };
+		new_direction = Some(Vec2 { x: 0.0, y: 1.0 });
 	}
 	if keyboard_input.pressed(KeyCode::Down) {
-		direction.0 = Vec2 { x: 0.0, y: -1.0 };
+		new_direction = Some(Vec2 { x: 0.0, y: -1.0 });
 	}
+
+	let nd = match new_direction {
+		Some(nd) => nd,
+		None => return,
+	};
+
+	if nd.dot(path_direction) < 0.0 {
+		return;
+	}
+	direction.0 = nd;
 }
 
 fn main() {
