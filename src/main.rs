@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 const TIME_STEP: f32 = 1.0 / 60.0;
 
@@ -148,9 +148,83 @@ fn greet_people(
 	scoreboard.score += 1;
 }
 
+struct CameraPlugin;
+
+impl Plugin for CameraPlugin {
+	fn build(&self, app: &mut App) {
+		app.add_startup_system(setup_camera);
+	}
+}
+
+fn setup_camera(mut commands: Commands) {
+	commands.spawn(Camera2dBundle::default());
+}
+
+struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+	fn build(&self, app: &mut App) {
+		app.add_startup_system(setup_player)
+			.add_system(update_velocity.before(update_player_position))
+			.add_system(update_player_position);
+	}
+}
+
+#[derive(Component)]
+struct Player;
+
+#[derive(Component)]
+struct Direction(Vec2);
+
+fn setup_player(
+	mut commands: Commands,
+	mut meshes: ResMut<Assets<Mesh>>,
+	mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+	commands.spawn((
+		MaterialMesh2dBundle {
+			mesh: meshes.add(shape::Circle::default().into()).into(),
+			material: materials.add(ColorMaterial::from(BALL_COLOR)),
+			transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
+			..default()
+		},
+		Player,
+		Direction(Vec2 { x: 0.0, y: 0.0 }),
+	));
+}
+
+fn update_player_position(
+	mut query: Query<(&mut Transform, &Direction), With<Player>>,
+	time: Res<Time>,
+) {
+	let (mut transform, velocity) = query.single_mut();
+	let translation_velocity: Vec3 = (velocity.0, 0.0).into();
+	transform.translation += translation_velocity * time.delta().as_secs_f32() * 100.0;
+}
+
+fn update_velocity(
+	keyboard_input: Res<Input<KeyCode>>,
+	mut query: Query<&mut Direction, With<Player>>,
+) {
+	let mut direction = query.single_mut();
+	if keyboard_input.pressed(KeyCode::Left) {
+		direction.0 = Vec2 { x: -1.0, y: 0.0 };
+	}
+	if keyboard_input.pressed(KeyCode::Right) {
+		direction.0 = Vec2 { x: 1.0, y: 0.0 };
+	}
+	if keyboard_input.pressed(KeyCode::Up) {
+		direction.0 = Vec2 { x: 0.0, y: 1.0 };
+	}
+	if keyboard_input.pressed(KeyCode::Down) {
+		direction.0 = Vec2 { x: 0.0, y: -1.0 };
+	}
+}
+
 fn main() {
 	App::new()
 		.add_plugins(DefaultPlugins)
-		.add_plugin(HelloPlugin)
+		.add_plugin(CameraPlugin)
+		.add_plugin(PlayerPlugin)
 		.run();
 }
