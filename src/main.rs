@@ -2,6 +2,7 @@ use bevy::{prelude::*, sprite::MaterialMesh2dBundle, sprite::Mesh2dHandle};
 use rand::Rng;
 
 const STARTING_POSITION: Vec3 = Vec3::new(0.0, 0.0, 1.0);
+const STARTING_POSITION_INVISIBLE: Vec3 = Vec3::new(0.0, 0.0, -1.0);
 const GRID_SCALE: f32 = 20.0;
 const SEGMENT_SCALE: Vec3 = Vec3 {
 	x: GRID_SCALE - 2.0,
@@ -35,9 +36,10 @@ struct SnakePlugin;
 impl Plugin for SnakePlugin {
 	fn build(&self, app: &mut App) {
 		app.add_startup_system(setup_snake)
+			.add_system(update_path_and_りんご)
 			.add_system(update_path_marker)
 			.add_system(update_snake)
-			.add_system(update_path_and_りんご)
+			.add_system(color_stomach)
 			.add_system(update_direction);
 	}
 }
@@ -78,8 +80,11 @@ struct PathScaler(f32);
 #[derive(Component)]
 struct PathIndex(usize);
 
-#[derive(Component)]
+#[derive(Component, PartialEq)]
 struct SegmentIndex(usize);
+
+#[derive(Component)]
+struct Stomach(Vec<SegmentIndex>);
 
 fn mesh2d(
 	mesh: &Mesh2dHandle,
@@ -107,6 +112,7 @@ fn setup_snake(
 		},
 		Vec2::ZERO,
 	];
+	let stomach: Vec<SegmentIndex> = vec![];
 	let direction = Vec2 { x: 1.0, y: 0.0 };
 	let path_mesh: Mesh2dHandle = meshes.add(shape::Quad::default().into()).into();
 	let snake_mesh: Mesh2dHandle = meshes.add(shape::Circle::default().into()).into();
@@ -115,7 +121,12 @@ fn setup_snake(
 	let snake_color = materials.add(ColorMaterial::from(SNAKE_COLOR));
 	let りんご_color = materials.add(ColorMaterial::from(りんご_COLOR));
 
-	commands.spawn((Path(path), PathScaler(0.0), Direction(direction)));
+	commands.spawn((
+		Path(path),
+		PathScaler(0.0),
+		Direction(direction),
+		Stomach(stomach),
+	));
 	commands.spawn((
 		mesh2d(&path_mesh, &path_color, STARTING_POSITION, SEGMENT_SCALE),
 		PathIndex(0),
@@ -166,12 +177,33 @@ fn update_snake(
 	}
 }
 
+fn color_stomach(
+	query_stomach: Query<&Stomach>,
+	query_snake: Query<(&Handle<ColorMaterial>, &SegmentIndex)>,
+	mut assets: ResMut<Assets<ColorMaterial>>,
+) {
+	let stomach = query_stomach.single();
+	for (color_handle, index) in query_snake.iter() {
+		let mut material = assets
+			.get_mut(&color_handle)
+			.expect("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+		material.color = if stomach.0.contains(index) {
+			Color::PINK
+		} else {
+			SNAKE_COLOR
+		}
+	}
+}
+
 fn update_path_and_りんご(
-	mut query_path: Query<(&mut PathScaler, &mut Path, &Direction)>,
+	mut commands: Commands,
+	mut meshes: ResMut<Assets<Mesh>>,
+	mut materials: ResMut<Assets<ColorMaterial>>,
+	mut query_path: Query<(&mut PathScaler, &mut Path, &Direction, &mut Stomach)>,
 	mut query_りんご: Query<&mut Transform, With<りんご>>,
 	time: Res<Time>,
 ) {
-	let (mut scaler, mut path, direction) = query_path.single_mut();
+	let (mut scaler, mut path, direction, mut stomach) = query_path.single_mut();
 	let mut _りんご = query_りんご.single_mut();
 	let delta = time.delta().as_secs_f32() * SPEED;
 	let new_scale = scaler.0 + delta;
@@ -183,11 +215,48 @@ fn update_path_and_りんご(
 
 	let fst = path[0];
 	let new_head = fst + direction.0 * GRID_SCALE;
-	path.shift_right(new_head);
+	let current_last_index = path.0.len() - 2;
+
+	if stomach.0.len() > 0 && stomach.0[0].0 == current_last_index {
+		path.0.insert(0, new_head);
+
+		let path_mesh: Mesh2dHandle = meshes.add(shape::Quad::default().into()).into();
+		let snake_mesh: Mesh2dHandle = meshes.add(shape::Circle::default().into()).into();
+		let path_color = materials.add(ColorMaterial::from(PATH_COLOR));
+		let snake_color = materials.add(ColorMaterial::from(SNAKE_COLOR));
+
+		commands.spawn((
+			mesh2d(
+				&path_mesh,
+				&path_color,
+				STARTING_POSITION_INVISIBLE,
+				SEGMENT_SCALE,
+			),
+			PathIndex(current_last_index + 2),
+		));
+		commands.spawn((
+			mesh2d(
+				&snake_mesh,
+				&snake_color,
+				STARTING_POSITION_INVISIBLE,
+				SEGMENT_SCALE,
+			),
+			SegmentIndex(current_last_index + 1),
+		));
+		stomach.0.remove(0);
+	} else {
+		path.shift_right(new_head);
+	}
+
+	for elem in &mut stomach.0 {
+		elem.0 += 1;
+	}
 
 	if _りんご.translation != new_head.to_vec3(0.0) {
 		return;
 	}
+
+	stomach.0.push(SegmentIndex(0));
 
 	let mut rng = rand::thread_rng();
 
