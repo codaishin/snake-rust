@@ -1,4 +1,5 @@
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle, sprite::Mesh2dHandle};
+use rand::Rng;
 
 const STARTING_POSITION: Vec3 = Vec3::new(0.0, 0.0, 1.0);
 const GRID_SCALE: f32 = 20.0;
@@ -7,9 +8,15 @@ const SEGMENT_SCALE: Vec3 = Vec3 {
 	y: GRID_SCALE - 2.0,
 	z: 0.0,
 };
+const りんご_SCALE: Vec3 = Vec3 {
+	x: GRID_SCALE / 2.0,
+	y: GRID_SCALE / 2.0,
+	z: 0.0,
+};
 const PATH_COLOR: Color = Color::BEIGE;
 const SNAKE_COLOR: Color = Color::GREEN;
-const SPEED: f32 = 1.0;
+const りんご_COLOR: Color = Color::RED;
+const SPEED: f32 = 2.0;
 
 struct CameraPlugin;
 
@@ -30,13 +37,13 @@ impl Plugin for SnakePlugin {
 		app.add_startup_system(setup_snake)
 			.add_system(update_path_marker)
 			.add_system(update_snake)
-			.add_system(update_path)
+			.add_system(update_path_and_りんご)
 			.add_system(update_direction);
 	}
 }
 
 #[derive(Component)]
-struct Snake;
+struct りんご;
 
 #[derive(Component)]
 struct Direction(Vec2);
@@ -103,8 +110,10 @@ fn setup_snake(
 	let direction = Vec2 { x: 1.0, y: 0.0 };
 	let path_mesh: Mesh2dHandle = meshes.add(shape::Quad::default().into()).into();
 	let snake_mesh: Mesh2dHandle = meshes.add(shape::Circle::default().into()).into();
-	let path_color: Handle<ColorMaterial> = materials.add(ColorMaterial::from(PATH_COLOR));
-	let snake_color: Handle<ColorMaterial> = materials.add(ColorMaterial::from(SNAKE_COLOR));
+	let りんご_mesh: Mesh2dHandle = meshes.add(shape::Circle::default().into()).into();
+	let path_color = materials.add(ColorMaterial::from(PATH_COLOR));
+	let snake_color = materials.add(ColorMaterial::from(SNAKE_COLOR));
+	let りんご_color = materials.add(ColorMaterial::from(りんご_COLOR));
 
 	commands.spawn((Path(path), PathScaler(0.0), Direction(direction)));
 	commands.spawn((
@@ -118,6 +127,19 @@ fn setup_snake(
 	commands.spawn((
 		mesh2d(&snake_mesh, &snake_color, STARTING_POSITION, SEGMENT_SCALE),
 		SegmentIndex(0),
+	));
+	commands.spawn((
+		mesh2d(
+			&りんご_mesh,
+			&りんご_color,
+			Vec3 {
+				x: 10.0 * GRID_SCALE,
+				y: 10.0 * GRID_SCALE,
+				z: 0.0,
+			},
+			りんご_SCALE,
+		),
+		りんご,
 	));
 }
 
@@ -144,14 +166,35 @@ fn update_snake(
 	}
 }
 
-fn update_path(mut query_path: Query<(&mut PathScaler, &mut Path, &Direction)>, time: Res<Time>) {
+fn update_path_and_りんご(
+	mut query_path: Query<(&mut PathScaler, &mut Path, &Direction)>,
+	mut query_りんご: Query<&mut Transform, With<りんご>>,
+	time: Res<Time>,
+) {
 	let (mut scaler, mut path, direction) = query_path.single_mut();
+	let mut _りんご = query_りんご.single_mut();
 	let delta = time.delta().as_secs_f32() * SPEED;
 	let new_scale = scaler.0 + delta;
 	scaler.0 = new_scale % 1.0;
-	if new_scale >= 1.0 {
-		let fst = path[0];
-		path.shift_right(fst + direction.0 * GRID_SCALE);
+
+	if new_scale < 1.0 {
+		return;
+	}
+
+	let fst = path[0];
+	let new_head = fst + direction.0 * GRID_SCALE;
+	path.shift_right(new_head);
+
+	if _りんご.translation != new_head.to_vec3(0.0) {
+		return;
+	}
+
+	let mut rng = rand::thread_rng();
+
+	_りんご.translation = Vec3 {
+		x: GRID_SCALE * (rng.gen_range(-20..=20) as f32),
+		y: GRID_SCALE * (rng.gen_range(-10..=10) as f32),
+		z: 0.0,
 	}
 }
 
