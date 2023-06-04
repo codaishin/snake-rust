@@ -9,4 +9,5 @@
 	"cSpell.words": [
 		"lerp"
 	],
+	"rust-analyzer.check.command": "clippy",
 }

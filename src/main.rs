@@ -185,7 +185,7 @@ fn color_stomach(
 	let stomach = query_stomach.single();
 	for (color_handle, index) in query_snake.iter() {
 		let mut material = assets
-			.get_mut(&color_handle)
+			.get_mut(color_handle)
 			.expect("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 		material.color = if stomach.0.contains(index) {
 			Color::PINK
@@ -217,7 +217,7 @@ fn update_path_and_りんご(
 	let new_head = fst + direction.0 * GRID_SCALE;
 	let current_last_index = path.0.len() - 2;
 
-	if stomach.0.len() > 0 && stomach.0[0].0 == current_last_index {
+	if !stomach.0.is_empty() && stomach.0[0].0 == current_last_index {
 		path.0.insert(0, new_head);
 
 		let path_mesh: Mesh2dHandle = meshes.add(shape::Quad::default().into()).into();
